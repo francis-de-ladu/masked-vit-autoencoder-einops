@@ -15,7 +15,7 @@ def plot_reconst(model, device, eval_loader, epoch, noise, save_dir='../visuals'
         break
 
     orig = orig[:, 0].detach().cpu().numpy()
-    reconst = reconst[:, 0].detach().cpu().numpy()
+    reconst = reconst[1][:, 0].detach().cpu().numpy()
 
     grid_size = np.asarray([8, 8])
     input_size = orig.shape[1:]
@@ -32,5 +32,5 @@ def plot_reconst(model, device, eval_loader, epoch, noise, save_dir='../visuals'
             image[y_start:y_end, x_mid:x_end] = reconst[index]
 
     os.makedirs(save_dir, exist_ok=True)
-    plt.imshow(image, cmap='gray')
+    plt.imshow(image, cmap='gray', vmin=0, vmax=1)
     plt.savefig(f'{save_dir.rstrip("/")}/epoch_{epoch+1}.png')
