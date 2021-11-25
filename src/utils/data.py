@@ -4,20 +4,21 @@ from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
 
 
-def load_dataset(data_path='../data', batch_size=64, valid_size=5000, normalize=False):
+def load_dataset(data_path='../../data', batch_size=64, valid_size=5000, normalize=False):
     if normalize is True:
         transform = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,))
+            # transforms.Normalize((0.1307,), (0.3081,)),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ])
     else:
         transform = transforms.ToTensor()
 
-    train = torchvision.datasets.MNIST(
+    train = torchvision.datasets.CIFAR10(
         data_path, train=True, download=True, transform=transform)
     train, valid = random_split(train, [len(train) - valid_size, valid_size])
 
-    test = torchvision.datasets.MNIST(
+    test = torchvision.datasets.CIFAR10(
         data_path, train=False, download=True, transform=transform)
 
     train_loader = DataLoader(train, batch_size=batch_size, shuffle=True)
