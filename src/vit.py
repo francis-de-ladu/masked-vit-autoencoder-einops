@@ -40,7 +40,7 @@ class ViT(nn.Module):
             nn.Linear(d_model, d_model * expansion),
             nn.Tanh(),
             nn.Linear(d_model * expansion, n_classes),
-        )
+        ) if n_classes else nn.Identity()
 
     def forward(self, img):
         tokens = self.to_patch_embedding(img)

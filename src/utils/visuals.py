@@ -54,6 +54,6 @@ def plot_reconst(model, eval_loader, epoch, noise, save_dir='../visuals'):
             image[y_beg:y_end, x_mid:x_end] = reconst[index]
 
     os.makedirs(save_dir, exist_ok=True)
-    # plt.imshow(image, cmap='gray', vmin=0, vmax=1)
-    plt.imshow(image, vmin=0, vmax=1)
+    cmap = 'gray' if orig.shape[-1] == 1 else None
+    plt.imshow(image, cmap=cmap, vmin=0, vmax=1)
     plt.savefig(f'{save_dir.rstrip("/")}/epoch_{epoch+1}.png')

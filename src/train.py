@@ -32,7 +32,7 @@ def save_if_best(model, epoch, eval_loss, best_epoch, save_dir='../models'):
 if __name__ == '__main__':
     # set seed and get splits
     torch.manual_seed(2021)
-    train_loader, valid_loader, test_loader = load_dataset(batch_size=256)
+    train_loader, valid_loader, test_loader = load_dataset(batch_size=128)
 
     # get input dimensions
     in_channels, image_size, _ = train_loader.dataset[0][0].shape
@@ -42,7 +42,7 @@ if __name__ == '__main__':
         in_channels,
         image_size,
         patch_size=4,
-        n_classes=10,
+        n_classes=None,
         **default_config
     )
 
@@ -59,7 +59,7 @@ if __name__ == '__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model.to(device)
 
-    epochs = 25
+    epochs = 100
     lr = 1e-3
 
     loss_fn = loss_fn_wrapper(nn.MSELoss(reduction='sum'), device=device)
@@ -76,11 +76,6 @@ if __name__ == '__main__':
 
             # forward pass
             reconst_loss = loss_fn(*model(img))
-            # masked_reconst, patches, masked_ids, _ = model(img)
-            #
-            # batch_range = torch.arange(img.size(0), device=device)[:, None]
-            # masked_patches = patches[batch_range, masked_ids]
-            # reconst_loss = loss_fn(masked_reconst, masked_patches)
 
             # backward pass
             optimizer.zero_grad()
