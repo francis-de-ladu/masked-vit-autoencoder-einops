@@ -5,11 +5,11 @@ from vit import Transformer
 
 
 class MaskedAE(nn.Module):
-    def __init__(
-        self, encoder, mask_ratio, decoder_dim, decoder_depth, decoder_heads
-    ):
+    def __init__(self, encoder, mask_ratio,
+                 decoder_dim, decoder_depth, decoder_heads,
+                 name='mae-vit2'):
         super().__init__()
-        self.name = 'mae-vit'
+        self.name = name
         self.mask_ratio = mask_ratio
 
         # encoder layers
@@ -25,7 +25,8 @@ class MaskedAE(nn.Module):
             if encoder_dim != decoder_dim else nn.Identity()
         self.mask_token = nn.Parameter(torch.randn(decoder_dim))
         self.decoder = Transformer(
-            decoder_dim, decoder_depth, decoder_heads, encoder.expansion)
+            decoder_dim, decoder_depth, decoder_heads,
+            encoder.expansion, encoder.dropout)
         self.dec_pos_embed = nn.Embedding(num_patches, decoder_dim)
         self.dec_embed_to_pixels = nn.Linear(decoder_dim, values_per_patch)
 

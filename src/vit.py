@@ -33,8 +33,10 @@ class ViT(nn.Module):
         # )
         self.pos_embedding = nn.Parameter(torch.randn(patches + 1, d_model))
         self.cls_token = nn.Parameter(torch.randn(d_model))
+        self.dropout_layer = nn.Dropout(dropout)
 
-        self.transformer = Transformer(d_model, depth, n_heads, expansion)
+        self.transformer = Transformer(
+            d_model, depth, n_heads, expansion, dropout)
 
         self.classify = nn.Sequential(
             nn.Linear(d_model, d_model * expansion),
@@ -47,8 +49,10 @@ class ViT(nn.Module):
         batch, patches, _ = tokens.shape
 
         cls_tokens = repeat(self.cls_token, 'd -> b n d', b=batch, n=patches)
+        tokens = torch.cat((cls_tokens, tokens), dim=1)
+        tokens += self.pos_embedding
+        tokens = self.dropout_layer(tokens)
 
-        tokens = torch.cat((cls_tokens, tokens), dim=1) + self.pos_embedding
         latent = self.transformer(tokens)
 
         out = self.classify(latent[:, 0])
@@ -58,14 +62,14 @@ class ViT(nn.Module):
 # TRANSFORMER
 
 class Transformer(nn.Sequential):
-    def __init__(self, d_model, depth, n_heads, expansion):
-        blocks = [TransformerBlock(d_model, n_heads, expansion)
+    def __init__(self, d_model, depth, n_heads, expansion, dropout):
+        blocks = [TransformerBlock(d_model, n_heads, expansion, dropout)
                   for _ in range(depth)]
         super().__init__(*blocks)
 
 
 class TransformerBlock(nn.Module):
-    def __init__(self, d_model, n_heads, expansion):
+    def __init__(self, d_model, n_heads, expansion, dropout):
         super().__init__()
         self.d_model = d_model
         self.expansion = expansion
@@ -73,13 +77,13 @@ class TransformerBlock(nn.Module):
         self.attn_block = nn.Sequential(
             nn.LayerNorm(d_model),
             MultiHeadAttention(d_model, n_heads),
-            # TODO: dropout here
+            nn.Dropout(dropout),
         )
 
         self.ff_block = nn.Sequential(
             nn.LayerNorm(d_model),
-            FeedForward(d_model, expansion),
-            # TODO: dropout here
+            FeedForward(d_model, expansion, dropout),
+            nn.Dropout(dropout),
         )
 
     def forward(self, x):
@@ -113,10 +117,10 @@ class MultiHeadAttention(nn.Module):
 
 
 class FeedForward(nn.Sequential):
-    def __init__(self, d_model, expansion):
+    def __init__(self, d_model, expansion, dropout):
         super().__init__(
             nn.Linear(d_model, d_model * expansion),
             nn.GELU(),
-            # TODO: add dropout here
+            nn.Dropout(dropout),
             nn.Linear(d_model * expansion, d_model),
         )

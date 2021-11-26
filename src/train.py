@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 import torch
-from config import default_config
+from config import config_base
 from mae import MaskedAE
 from torch import nn, optim
 from tqdm import tqdm
@@ -43,20 +43,20 @@ if __name__ == '__main__':
         image_size,
         patch_size=4,
         n_classes=None,
-        **default_config
+        **config_base
     )
 
     # instantiate masked autoencoder
     model = MaskedAE(
         vit,
         mask_ratio=.75,
-        decoder_dim=default_config['d_model'] // 4,
-        decoder_depth=default_config['depth'] // 4,
-        decoder_heads=default_config['n_heads']
+        decoder_dim=config_base['d_model'] // 4,
+        decoder_depth=config_base['depth'] // 4,
+        decoder_heads=config_base['n_heads']
     )
 
     # send model to device
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
     epochs = 100
@@ -64,6 +64,8 @@ if __name__ == '__main__':
 
     loss_fn = loss_fn_wrapper(nn.MSELoss(reduction='sum'), device=device)
     optimizer = optim.Adam(model.parameters(), weight_decay=0.1, lr=lr)
+
+    scaler = torch.cuda.amp.GradScaler() if device.type == 'cuda' else None
 
     epoch_losses = []
     best_epoch = {'epoch': 0, 'loss': np.inf}
@@ -75,12 +77,16 @@ if __name__ == '__main__':
             img = img.to(device)
 
             # forward pass
-            reconst_loss = loss_fn(*model(img))
+            with torch.autocast(device_type=device.type):
+                reconst_loss = loss_fn(*model(img))
 
             # backward pass
-            optimizer.zero_grad()
-            reconst_loss.backward()
-            optimizer.step()
+            scaler.scale(reconst_loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+
+            # reset gradients
+            optimizer.zero_grad(set_to_none=True)
 
             # append the loss for this batch
             batch_losses.append(reconst_loss.detach().cpu().numpy())
@@ -97,4 +103,7 @@ if __name__ == '__main__':
         print(f'Train loss: {mean_epoch_loss}')
         print(f'Eval loss: {eval_loss}')
 
+        saved_seed = torch.get_rng_state()
+        torch.manual_seed(42)
         plot_reconst(model, valid_loader, epoch, noise=0)
+        torch.set_rng_state(saved_seed)
