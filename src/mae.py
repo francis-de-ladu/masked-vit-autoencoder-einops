@@ -7,7 +7,7 @@ from vit import Transformer
 class MaskedAE(nn.Module):
     def __init__(self, encoder, mask_ratio,
                  decoder_dim, decoder_depth, decoder_heads,
-                 name='mae-vit2'):
+                 name='mae-vit-3'):
         super().__init__()
         self.name = name
         self.mask_ratio = mask_ratio

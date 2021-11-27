@@ -20,11 +20,17 @@ def loss_fn_wrapper(loss_fn, device):
     return wrapped_loss_fn
 
 
-def save_if_best(model, epoch, eval_loss, best_epoch, save_dir='../models'):
+def save_if_best(model, optimizer, scaler, epoch, eval_loss, best_epoch,
+                 save_dir='../models'):
     if eval_loss < best_epoch['loss']:
+        checkpoint = dict(
+            model=model.state_dict(),
+            optimizer=optimizer.state_dict(),
+            scaler=scaler.state_dict(),
+        )
         os.makedirs(save_dir, exist_ok=True)
         save_path = f'{save_dir.rstrip("/")}/{model.name}.model'
-        torch.save(model.state_dict(), save_path)
+        torch.save(checkpoint, save_path)
         best_epoch.update({'epoch': epoch, 'loss': eval_loss})
     return best_epoch
 
@@ -41,7 +47,7 @@ if __name__ == '__main__':
     vit = ViT(
         in_channels,
         image_size,
-        patch_size=4,
+        patch_size=8,
         n_classes=None,
         **config_base
     )
@@ -97,7 +103,8 @@ if __name__ == '__main__':
 
         # compute eval loss for the epoch
         eval_loss = evaluate(model, loss_fn, valid_loader)
-        best_epoch = save_if_best(model, epoch, eval_loss, best_epoch)
+        best_epoch = save_if_best(
+            model, optimizer, scaler, epoch, eval_loss, best_epoch)
 
         print(f'Epoch {epoch + 1}:')
         print(f'Train loss: {mean_epoch_loss}')
