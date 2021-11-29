@@ -36,9 +36,24 @@ def save_if_best(model, optimizer, scaler, epoch, eval_loss, best_epoch,
 
 
 if __name__ == '__main__':
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    scaler = torch.cuda.amp.GradScaler() if device.type == 'cuda' else None
+
+    # constants
+    base_lr = 1.5e-4
+    weight_decay = 0.05
+    betas = (0.9, 0.95)
+    batch_size = 128
+    warmup_epochs = 40
+
+    lr = base_lr * batch_size / 256
+    epochs = 200
+    patience = 20
+
     # set seed and get splits
     torch.manual_seed(2021)
-    train_loader, valid_loader, test_loader = load_dataset(batch_size=128)
+    train_loader, valid_loader, test_loader = \
+        load_dataset(batch_size=batch_size)
 
     # get input dimensions
     in_channels, image_size, _ = train_loader.dataset[0][0].shape
@@ -47,7 +62,7 @@ if __name__ == '__main__':
     vit = ViT(
         in_channels,
         image_size,
-        patch_size=8,
+        patch_size=2,
         n_classes=None,
         **config_base
     )
@@ -62,16 +77,14 @@ if __name__ == '__main__':
     )
 
     # send model to device
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
-    epochs = 100
-    lr = 1e-3
-
+    # loss function, optimizer and scheduler
     loss_fn = loss_fn_wrapper(nn.MSELoss(reduction='sum'), device=device)
-    optimizer = optim.Adam(model.parameters(), weight_decay=0.1, lr=lr)
-
-    scaler = torch.cuda.amp.GradScaler() if device.type == 'cuda' else None
+    optimizer = optim.AdamW(
+        model.parameters(), lr=lr, betas=betas, weight_decay=weight_decay)
+    scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(
+        optimizer, T_0=1, T_mult=1)
 
     epoch_losses = []
     best_epoch = {'epoch': 0, 'loss': np.inf}
@@ -79,10 +92,11 @@ if __name__ == '__main__':
         model.train()
         batch_losses = []
         for img, _ in train_loader:
-            # send inputs to device
-            img = img.to(device)
+            # reset gradients
+            optimizer.zero_grad(set_to_none=True)
 
             # forward pass
+            img = img.to(device)
             with torch.autocast(device_type=device.type):
                 reconst_loss = loss_fn(*model(img))
 
@@ -91,11 +105,11 @@ if __name__ == '__main__':
             scaler.step(optimizer)
             scaler.update()
 
-            # reset gradients
-            optimizer.zero_grad(set_to_none=True)
-
             # append the loss for this batch
             batch_losses.append(reconst_loss.detach().cpu().numpy())
+
+        if epoch + 1 >= warmup_epochs:
+            scheduler.step()
 
         # compute train loss for the epoch
         mean_epoch_loss = np.sum(batch_losses) / len(train_loader.dataset)
@@ -114,3 +128,6 @@ if __name__ == '__main__':
         torch.manual_seed(42)
         plot_reconst(model, valid_loader, epoch, noise=0)
         torch.set_rng_state(saved_seed)
+
+        if best_epoch['epoch'] - epoch >= patience:
+            break

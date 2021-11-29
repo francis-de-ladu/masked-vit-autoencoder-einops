@@ -16,11 +16,10 @@ def plot_reconst(model, eval_loader, epoch, noise, save_dir='../visuals'):
 
     for orig, _ in eval_loader:
         orig = orig.to(device)
-        if noise > 0:
-            orig = add_noise(orig, noise)
 
         masked_reconst, patches, masked_ids, unmasked_ids = model(orig)
         shuffled_ids = torch.cat((masked_ids, unmasked_ids), dim=1)
+        unshuffled_ids = shuffled_ids.argsort(dim=-1)
 
         batch_range = torch.arange(orig.size(0), device=device)[:, None]
         masked_patches = 0.5 * torch.ones_like(masked_reconst)
@@ -29,36 +28,14 @@ def plot_reconst(model, eval_loader, epoch, noise, save_dir='../visuals'):
         input_patches = torch.cat((masked_patches, unmasked_patches), dim=1)
         reconst_patches = torch.cat((masked_reconst, unmasked_patches), dim=1)
 
-        input_patches[batch_range, shuffled_ids.argsort(dim=-1)]
-        reconst_patches[batch_range, shuffled_ids.argsort(dim=-1)]
+        input_patches = input_patches[batch_range, unshuffled_ids]
+        reconst_patches = reconst_patches[batch_range, unshuffled_ids]
         orig_patches = rearrange(
             orig, 'b c (h s1) (w s2) -> b (h w) (s1 s2 c)',
             s1=PATCH_SIZE, s2=PATCH_SIZE,
         )
-
-        # input = rearrange(
-        #     input_patches[batch_range, shuffled_ids.argsort(dim=-1)],
-        #     'b (h w) (p1 p2 c) -> b c (h p1) (w p2)',
-        #     p1=model.encoder.patch_size, p2=model.encoder.patch_size,
-        #     h=model.encoder.image_size // model.encoder.patch_size,
-        # )
-        # reconst = rearrange(
-        #     reconst_patches[batch_range, shuffled_ids.argsort(dim=-1)],
-        #     'b (h w) (p1 p2 c) -> b c (h p1) (w p2)',
-        #     p1=model.encoder.patch_size, p2=model.encoder.patch_size,
-        #     h=model.encoder.image_size // model.encoder.patch_size,
-        # )
         break
 
-    # orig = orig.detach().cpu().numpy()
-    # input = input.detach().cpu().numpy()
-    # reconst = reconst.detach().cpu().numpy()
-
-    # orig = rearrange(orig, 'b c h w -> b h w c')
-    # input = rearrange(input, 'b c h w -> b h w c')
-    # reconst = rearrange(reconst, 'b c h w -> b h w c')
-
-    # b n d -> (3 b) n d ->
     lines, cols = 8, 3
     num_samples = lines * cols
 
