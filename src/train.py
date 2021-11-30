@@ -30,7 +30,8 @@ def save_if_best(model, optimizer, scheduer, scaler,
             optimizer=optimizer.state_dict(),
             scheduler=scheduler.state_dict(),
             scaler=scaler.state_dict(),
-            best_epoch=best_epoch
+            best_epoch=best_epoch,
+            rng_state=torch.get_rng_state(),
         )
         os.makedirs(save_dir, exist_ok=True)
         save_path = f'{save_dir.rstrip("/")}/{model.name}.model'
@@ -98,6 +99,8 @@ if __name__ == '__main__':
         scheduler.load_state_dict(checkpoint['scheduler'])
         scaler.load_state_dict(checkpoint['scaler'])
         best_epoch = checkpoint['best_epoch']
+        torch.set_rng_state(checkpoint['rng_state'])
+        del checkpoint
         print(f'=> Checkpoint loaded from `{sys.argv[1]}`.')
     else:
         print('No checkpoint loaded.')

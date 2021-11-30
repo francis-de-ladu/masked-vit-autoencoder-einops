@@ -36,15 +36,16 @@ def plot_reconst(model, eval_loader, epoch, noise, save_dir='../visuals'):
         )
         break
 
-    lines, cols = 8, 3
+    lines, cols = 8, 4
     num_samples = lines * cols
+    images_per_sample = 4
 
     triplets = zip(input_patches, reconst_patches, orig_patches)
     images = list(chain.from_iterable(triplets))[:(3 * num_samples)]
 
     images = rearrange(
         images, '(i j n) (p1 p2) (s1 s2 c) -> (i p1 s1) (j n p2 s2) c',
-        i=lines, j=cols, n=3,
+        i=lines, j=cols, n=images_per_sample,
         p1=PATCH_PER_AXIS, p2=PATCH_PER_AXIS,
         s1=PATCH_SIZE, s2=PATCH_SIZE)
     images = images.detach().cpu().numpy()
