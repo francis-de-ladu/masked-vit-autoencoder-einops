@@ -1,4 +1,5 @@
 import os
+import sys
 
 import numpy as np
 import torch
@@ -20,18 +21,20 @@ def loss_fn_wrapper(loss_fn, device):
     return wrapped_loss_fn
 
 
-def save_if_best(model, optimizer, scaler, epoch, eval_loss, best_epoch,
-                 save_dir='../models'):
+def save_if_best(model, optimizer, scheduer, scaler,
+                 epoch, eval_loss, best_epoch, save_dir='../models'):
     if eval_loss < best_epoch['loss']:
+        best_epoch.update({'epoch': epoch, 'loss': eval_loss})
         checkpoint = dict(
             model=model.state_dict(),
             optimizer=optimizer.state_dict(),
+            scheduler=scheduler.state_dict(),
             scaler=scaler.state_dict(),
+            best_epoch=best_epoch
         )
         os.makedirs(save_dir, exist_ok=True)
         save_path = f'{save_dir.rstrip("/")}/{model.name}.model'
         torch.save(checkpoint, save_path)
-        best_epoch.update({'epoch': epoch, 'loss': eval_loss})
     return best_epoch
 
 
@@ -43,7 +46,7 @@ if __name__ == '__main__':
     base_lr = 1.5e-4
     weight_decay = 0.05
     betas = (0.9, 0.95)
-    batch_size = 128
+    batch_size = 32
     warmup_epochs = 40
 
     lr = base_lr * batch_size / 256
@@ -79,16 +82,29 @@ if __name__ == '__main__':
     # send model to device
     model.to(device)
 
-    # loss function, optimizer and scheduler
+    # loss, optimizer and scheduler
     loss_fn = loss_fn_wrapper(nn.MSELoss(reduction='sum'), device=device)
     optimizer = optim.AdamW(
         model.parameters(), lr=lr, betas=betas, weight_decay=weight_decay)
     scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(
         optimizer, T_0=1, T_mult=1)
-
-    epoch_losses = []
     best_epoch = {'epoch': 0, 'loss': np.inf}
-    for epoch in tqdm(range(epochs)):
+
+    # load model from checkpoint if a path has been given
+    if len(sys.argv) > 1:
+        checkpoint = torch.load(sys.argv[1])
+        model.load_state_dict(checkpoint['model'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        scheduler.load_state_dict(checkpoint['scheduler'])
+        scaler.load_state_dict(checkpoint['scaler'])
+        best_epoch = checkpoint['best_epoch']
+        print(f'=> Checkpoint loaded from `{sys.argv[1]}`.')
+    else:
+        print('No checkpoint loaded.')
+
+    # train loop
+    epoch_losses = []
+    for epoch in tqdm(np.arange(epochs) + best_epoch['epoch']):
         model.train()
         batch_losses = []
         for img, _ in train_loader:
@@ -118,7 +134,7 @@ if __name__ == '__main__':
         # compute eval loss for the epoch
         eval_loss = evaluate(model, loss_fn, valid_loader)
         best_epoch = save_if_best(
-            model, optimizer, scaler, epoch, eval_loss, best_epoch)
+            model, optimizer, scheduler, scaler, epoch, eval_loss, best_epoch)
 
         print(f'Epoch {epoch + 1}:')
         print(f'Train loss: {mean_epoch_loss}')
