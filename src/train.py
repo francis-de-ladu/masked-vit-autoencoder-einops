@@ -33,6 +33,8 @@ def save_if_best(model, optimizer, scheduer, scaler,
             best_epoch=best_epoch,
             rng_state=torch.get_rng_state(),
         )
+        if torch.cuda.is_available():
+            checkpoint['rng_state_cuda'] = torch.cuda.get_rng_state()
         os.makedirs(save_dir, exist_ok=True)
         save_path = f'{save_dir.rstrip("/")}/{model.name}.model'
         torch.save(checkpoint, save_path)
@@ -100,6 +102,8 @@ if __name__ == '__main__':
         scaler.load_state_dict(checkpoint['scaler'])
         best_epoch = checkpoint['best_epoch']
         torch.set_rng_state(checkpoint['rng_state'])
+        if torch.cuda.is_available() and 'rng_state_cuda' in checkpoint:
+            torch.cuda.set_rng_state(checkpoint['rng_state_cuda'])
         del checkpoint
         print(f'=> Checkpoint loaded from `{sys.argv[1]}`.')
     else:

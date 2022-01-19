@@ -1,3 +1,5 @@
+import os
+
 import torch
 import torchvision
 from torch.utils.data import DataLoader, random_split
@@ -21,9 +23,14 @@ def load_dataset(data_path='../../data', batch_size=64, valid_size=5000, normali
     test = torchvision.datasets.CIFAR10(
         data_path, train=False, download=True, transform=transform)
 
-    train_loader = DataLoader(train, batch_size=batch_size, shuffle=True)
-    valid_loader = DataLoader(valid, batch_size=batch_size, shuffle=False)
-    test_loader = DataLoader(test, batch_size=batch_size, shuffle=False)
+    kwargs = dict(
+        batch_size=batch_size,
+        pin_memory=True,
+        num_workers=os.cpu_count() - 2
+    )
+    train_loader = DataLoader(train, shuffle=True, **kwargs)
+    valid_loader = DataLoader(valid, shuffle=False, **kwargs)
+    test_loader = DataLoader(test, shuffle=False, **kwargs)
 
     return train_loader, valid_loader, test_loader
 
