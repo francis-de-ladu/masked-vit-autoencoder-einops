@@ -4,13 +4,13 @@ import torch
 import torchvision
 from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
+from torchvision.transforms import InterpolationMode
 
 
 def load_dataset(data_path='../../data', batch_size=64, valid_size=5000, normalize=False):
     if normalize is True:
         transform = transforms.Compose([
             transforms.ToTensor(),
-            # transforms.Normalize((0.1307,), (0.3081,)),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ])
     else:
@@ -22,6 +22,23 @@ def load_dataset(data_path='../../data', batch_size=64, valid_size=5000, normali
 
     test = torchvision.datasets.CIFAR10(
         data_path, train=False, download=True, transform=transform)
+
+    IMAGE_SIZE = train[0][0].shape[1:]
+
+    train_transform = transforms.Compose([
+        transform,
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomChoice([
+            transforms.RandomResizedCrop(
+                IMAGE_SIZE, scale=(0.75, 1.0), interpolation=InterpolationMode.BILINEAR),
+            transforms.RandomResizedCrop(
+                IMAGE_SIZE, scale=(0.75, 1.0), interpolation=InterpolationMode.BICUBIC),
+        ]),
+    ])
+
+    train.transform = train_transform
+    valid.transform = transform
+    test.transform = transform
 
     kwargs = dict(
         batch_size=batch_size,

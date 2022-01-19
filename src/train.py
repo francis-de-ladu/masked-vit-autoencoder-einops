@@ -53,7 +53,7 @@ if __name__ == '__main__':
     warmup_epochs = 40
 
     lr = base_lr * batch_size / 256
-    epochs = 200
+    epochs = 1000
     patience = 20
 
     # set seed and get splits
